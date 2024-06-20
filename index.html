@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego Robot Fostena</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <style>
+        #tablero-juego {
+            display: grid;
+            grid-template-columns: repeat(11, 50px);
+            grid-template-rows: repeat(11, 50px);
+            gap: 2px;
+            margin-top: 20px;
+        }
+        h1 {
+            font-size: 2.6rem;
+        }
+        .celda {
+            width: 50px;
+            height: 50px;
+            text-align: center;
+            vertical-align: middle;
+            border: 1px solid #000;
+        }
+        .oculta {
+            background-color: grey;
+        }
+        .amarilla {
+            background-color: #FFFF00;
+        }
+        .verde {
+            background-color: #008000;
+        }
+        .negra {
+            background-color: #000000;
+        }
+        .azul {
+            background-color: #add8e6;
+        }
+        .monstruo {
+            background-size: cover;
+        }
+        #robot {
+            background: url('imag4.jpg') center center no-repeat;
+            background-size: cover;
+        }
+        #controles {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1><strong>El juego del laboratorio</strong></h1>
+<hr class="style-one">
+<textarea id="input-mapa" placeholder="Ingresa el mapa del juego aquí"></textarea>
+<br>
+<br>
+<button id="iniciar" type="button" class="btn btn-success">Subir laberinto</button>
+<button id="btn-toggle-obstaculos" type="button" class="btn btn-success" style="display: none;">Mostrar obstáculos</button>
+<div id="tablero-juego"></div>
+<script>
+    document.getElementById('iniciar').addEventListener('click', iniciarJuego);
+    document.getElementById('btn-toggle-obstaculos').addEventListener('click', alternarObstaculos);
+
+    let mapa = [];
+    let posicionRobot = { x: 0, y: 0 };
+    let direccion = 'derecha';
+    let obstaculosVisibles = false;
+
+    function iniciarJuego() {
+        const inputMapa = document.getElementById('input-mapa').value;
+        const [datosMapa, datosLeyenda] = inputMapa.split('\n\n');
+        mapa = datosMapa.split('\n').map(fila => fila.split(''));
+        const leyenda = datosLeyenda.split('\n').reduce((acc, linea) => {
+            const [clave, valor] = linea.split(':');
+            acc[clave] = valor;
+            return acc;
+        }, {});
+
+        renderizarTablero(leyenda);
+        document.getElementById('btn-toggle-obstaculos').style.display = 'block';
+        document.addEventListener('keydown', manejarTeclaPresionada);
+    }
+
+    function renderizarTablero(leyenda) {
+        const tablero = document.getElementById('tablero-juego');
+        tablero.innerHTML = '';
+        for (let y = 0; y < mapa.length; y++) {
+            for (let x = 0; x < mapa[y].length; x++) {
+                const celda = document.createElement('div');
+                celda.classList.add('celda', 'oculta');
+                switch (mapa[y][x]) {
+                    case 'I':
+                        celda.classList.add('amarilla');
+                        posicionRobot = { x, y };
+                        celda.id = 'robot';
+                        break;
+                    case 'F':
+                        celda.classList.add('verde');
+                        break;
+                    case 'A':
+                        celda.classList.add('negra');
+                        break;
+                    case 'O':
+                        celda.classList.add('azul');
+                        break;
+                    case 'S':
+                    case 'C':
+                    case 'P':
+                        celda.classList.add('monstruo');
+                        celda.style.backgroundImage = `url('${leyenda[mapa[y][x]].split(' ')[0]}')`;
+                        break;
+                }
+                tablero.appendChild(celda);
+            }
+        }
+    }
+
+    function manejarTeclaPresionada(evento) {
+        switch (evento.key) {
+            case 'ArrowUp':
+                moverRobot('arriba');
+                break;
+            case 'ArrowDown':
+                moverRobot('abajo');
+                break;
+            case 'ArrowLeft':
+                moverRobot('izquierda');
+                break;
+            case 'ArrowRight':
+                moverRobot('derecha');
+                break;
+        }
+    }
+
+    function moverRobot(dir) {
+        const nuevaPos = { ...posicionRobot };
+        if (dir === 'arriba') nuevaPos.y -= 1;
+        if (dir === 'abajo') nuevaPos.y += 1;
+        if (dir === 'izquierda') nuevaPos.x -= 1;
+        if (dir === 'derecha') nuevaPos.x += 1;
+
+        if (nuevaPos.x < 0 || nuevaPos.x >= mapa[0].length || nuevaPos.y < 0 || nuevaPos.y >= mapa.length) return;
+
+        const siguienteCelda = mapa[nuevaPos.y][nuevaPos.x];
+        manejarCelda(siguienteCelda, nuevaPos, dir);
+    }
+
+    function manejarCelda(celda, nuevaPos, dir) {
+        switch (celda) {
+            case 'O':
+            case 'F':
+                actualizarPosicionRobot(nuevaPos);
+                if (celda === 'F') alert("El robot está durmiendo en sociales");
+                break;
+            case 'S':
+                manejarSuplantacion(nuevaPos, dir);
+                break;
+            case 'C':
+                manejarCopia(nuevaPos, dir);
+                break;
+            case 'P':
+                manejarPlagio(nuevaPos);
+                break;
+            case 'A':
+                manejarAgujeroNegro(nuevaPos);
+                break;
+        }
+    }
+
+    function actualizarPosicionRobot(nuevaPos) {
+        document.getElementById('robot').id = '';
+        posicionRobot = nuevaPos;
+        const nuevaCeldaRobot = document.querySelector(`#tablero-juego .celda:nth-child(${nuevaPos.y * 11 + nuevaPos.x + 1})`);
+        nuevaCeldaRobot.id = 'robot';
+    }
+
+    function alternarObstaculos() {
+        obstaculosVisibles = !obstaculosVisibles;
+        document.querySelectorAll('.monstruo, .negra').forEach(celda => {
+            celda.classList.toggle('oculta', !obstaculosVisibles);
+        });
+        document.getElementById('btn-toggle-obstaculos').textContent = obstaculosVisibles ? 'Ocultar obstáculos' : 'Mostrar obstáculos';
+    }
+
+    function manejarSuplantacion(pos, dir) {
+        const celda = document.querySelector(`#tablero-juego .celda:nth-child(${pos.y * 11 + pos.x + 1})`);
+        celda.classList.remove('oculta');
+        let nuevaPos = { ...pos };
+        switch (dir) {
+            case 'arriba':
+                nuevaPos.y = mapa.length - 1;
+                break;
+            case 'abajo':
+                nuevaPos.y = 0;
+                break;
+            case 'izquierda':
+                nuevaPos.x = mapa[0].length - 1;
+                break;
+            case 'derecha':
+                nuevaPos.x = 0;
+                break;
+        }
+        actualizarPosicionRobot(nuevaPos);
+    }
+
+    function manejarCopia(pos, dir) {
+        const celda = document.querySelector(`#tablero-juego .celda:nth-child(${pos.y * 11 + pos.x + 1})`);
+        celda.classList.remove('oculta');
+
+        // Girar 90 grados hacia la derecha
+        let nuevaDir;
+        switch (dir) {
+            case 'arriba':
+                nuevaDir = 'derecha';
+                break;
+            case 'derecha':
+                nuevaDir = 'abajo';
+                break;
+            case 'abajo':
+                nuevaDir = 'izquierda';
+                break;
+            case 'izquierda':
+                nuevaDir = 'arriba';
+                break;
+        }
+        let nuevaPos = { ...pos };
+        while (true) {
+            switch (nuevaDir) {
+                case 'arriba':
+                    nuevaPos.y -= 1;
+                    break;
+                case 'abajo':
+                    nuevaPos.y += 1;
+                    break;
+                case 'izquierda':
+                    nuevaPos.x -= 1;
+                    break;
+                case 'derecha':
+                    nuevaPos.x += 1;
+                    break;
+            }
+            if (nuevaPos.x < 0 || nuevaPos.x >= mapa[0].length || nuevaPos.y < 0 || nuevaPos.y >= mapa.length ||
+                ['S', 'C', 'P', 'A'].includes(mapa[nuevaPos.y][nuevaPos.x])) {
+                // Retroceder una casilla
+                switch (nuevaDir) {
+                    case 'arriba':
+                        nuevaPos.y += 1;
+                        break;
+                    case 'abajo':
+                        nuevaPos.y -= 1;
+                        break;
+                    case 'izquierda':
+                        nuevaPos.x += 1;
+                        break;
+                    case 'derecha':
+                        nuevaPos.x -= 1;
+                        break;
+                }
+                break;
+            }
+        }
+        actualizarPosicionRobot(nuevaPos);
+    }
+
+    function manejarPlagio(pos) {
+        const celda = document.querySelector(`#tablero-juego .celda:nth-child(${pos.y * 11 + pos.x + 1})`);
+        celda.classList.remove('imag5.jpg');
+        let contadorPlagio = 0;
+        for (let y = 0; y < mapa.length; y++) {
+            for (let x = 0; x < mapa[y].length; x++) {
+                if (mapa[y][x] === 'P' && document.querySelector(`#tablero-juego .celda:nth-child(${y * 11 + x + 1})`).classList.contains('imag5.jpg')) {
+                    contadorPlagio++;
+                }
+            }
+        }
+        let nuevaPos = { ...pos };
+        for (let i = 0; i < contadorPlagio; i++) {
+            switch (direccion) {
+                case 'arriba':
+                    nuevaPos.y += 1;
+                    break;
+                case 'abajo':
+                    nuevaPos.y -= 1;
+                    break;
+                case 'izquierda':
+                    nuevaPos.x += 1;
+                    break;
+                case 'derecha':
+                    nuevaPos.x -= 1;
+                    break;
+            }
+            if (nuevaPos.x < 0 || nuevaPos.x >= mapa[0].length || nuevaPos.y < 0 || nuevaPos.y >= mapa.length ||
+                ['S', 'C', 'P', 'A'].includes(mapa[nuevaPos.y][nuevaPos.x])) {
+                break;
+            }
+        }
+        actualizarPosicionRobot(nuevaPos);
+    }
+
+    function manejarAgujeroNegro(pos) {
+        const celda = document.querySelector(`#tablero-juego .celda:nth-child(${pos.y * 11 + pos.x + 1})`);
+        celda.classList.remove('oculta');
+
+        // Contar casillas libres en la fila y columna
+        let contadorLibre = 0;
+        for (let x = 0; x < mapa[0].length; x++) {
+            if (mapa[pos.y][x] === 'O') contadorLibre++;
+        }
+        for (let y = 0; y < mapa.length; y++) {
+            if (mapa[y][pos.x] === 'O') contadorLibre++;
+        }
+        let nuevaPos = { ...pos };
+        let direcciones = ['derecha', 'abajo', 'izquierda', 'arriba'];
+        let indiceDir = 0;
+        for (let i = 0; i < contadorLibre; i++) {
+            switch (direcciones[indiceDir]) {
+                case 'arriba':
+                    nuevaPos.y -= 1;
+                    break;
+                case 'abajo':
+                    nuevaPos.y += 1;
+                    break;
+                case 'izquierda':
+                    nuevaPos.x -= 1;
+                    break;
+                case 'derecha':
+                    nuevaPos.x += 1;
+                    break;
+            }
+
+            if (nuevaPos.x < 0 || nuevaPos.x >= mapa[0].length || nuevaPos.y < 0 || nuevaPos.y >= mapa.length ||
+                ['S', 'C', 'P', 'A'].includes(mapa[nuevaPos.y][nuevaPos.x])) {
+                break;
+            }
+
+            if (i % (contadorLibre / 4) === 0) {
+                indiceDir = (indiceDir + 1) % 4;
+            }
+        }
+        actualizarPosicionRobot(nuevaPos);
+    }
+
+    function actualizarPosicionRobot(nuevaPos) {
+        document.getElementById('robot').id = '';
+        posicionRobot = nuevaPos;
+        const nuevaCeldaRobot = document.querySelector(`#tablero-juego .celda:nth-child(${nuevaPos.y * 11 + nuevaPos.x + 1})`);
+        nuevaCeldaRobot.id = 'robot';
+        direccion = nuevaDireccion;
+    }
+</script>
+
+</body>
+</html>
